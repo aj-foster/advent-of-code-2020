@@ -1,7 +1,20 @@
 defmodule Day2 do
-  def input do
+  #
+  # Reading the File
+  #
+
+  defp input do
     File.stream!("input.txt")
     |> Stream.filter(&(byte_size(&1) > 1))
+  end
+
+  #
+  # Part One
+  #
+
+  @spec part_one :: non_neg_integer
+  def part_one do
+    input()
     |> Stream.map(fn line ->
       Regex.named_captures(~r/(?<low>\d+)-(?<high>\d+)\s*(?<letter>\w):\s*(?<pass>\w+)/, line)
     end)
@@ -23,9 +36,13 @@ defmodule Day2 do
     |> Enum.count()
   end
 
-  def input2 do
-    File.stream!("input.txt")
-    |> Stream.filter(&(byte_size(&1) > 1))
+  #
+  # Part Two
+  #
+
+  @spec part_two :: non_neg_integer
+  def part_two do
+    input()
     |> Stream.map(fn line ->
       Regex.named_captures(~r/(?<first>\d+)-(?<second>\d+)\s*(?<letter>\w):\s*(?<pass>\w+)/, line)
     end)
