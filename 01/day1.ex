@@ -4,7 +4,7 @@ defmodule Day1 do
   #
 
   defp input do
-    File.stream!("lib/01/input.txt")
+    File.stream!("01/input.txt")
     |> Stream.filter(&(&1 != "\n"))
     |> Stream.map(&String.trim/1)
     |> Stream.map(&String.to_integer/1)
