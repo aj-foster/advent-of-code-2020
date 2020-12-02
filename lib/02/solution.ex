@@ -1,4 +1,4 @@
-defmodule Solution do
+defmodule Day2 do
   def input do
     File.stream!("input.txt")
     |> Stream.filter(&(byte_size(&1) > 1))
@@ -29,7 +29,7 @@ defmodule Solution do
     |> Stream.map(fn line ->
       Regex.named_captures(~r/(?<first>\d+)-(?<second>\d+)\s*(?<letter>\w):\s*(?<pass>\w+)/, line)
     end)
-    |> Stream.map(fn %{"pass" => pass, "first" => first, "second" => second} = line ->
+    |> Stream.map(fn %{"first" => first, "second" => second} = line ->
       line
       |> Map.put("first", String.to_integer(first))
       |> Map.put("second", String.to_integer(second))

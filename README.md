@@ -1,21 +1,7 @@
-# Advent
+# Advent of Code 2020
 
-**TODO: Add description**
-
-## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `advent` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:advent, "~> 0.1.0"}
-  ]
-end
-```
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/advent](https://hexdocs.pm/advent).
-
+This repository contains my solutions for several
+[Advent of Code 2020](https://adventofcode.com/2020/) challenges. Initial solutions are often
+developed with speed in mind (speed of coding, not efficiency of the code) and usually follow a
+"whatever comes to mind first" approach. Revisions, if they occur, attempt to clean it up and
+work towards better practices.
