@@ -3,9 +3,65 @@ defmodule Day2 do
   # Reading the File
   #
 
-  defp input do
-    File.stream!("input.txt")
+  @doc """
+  Read the file, line-by-line, and filter out any lines smaller than 2 bytes (blank lines).
+  """
+  @spec input :: Stream.t()
+  def input do
+    File.stream!("02/input.txt")
     |> Stream.filter(&(byte_size(&1) > 1))
+  end
+
+  @doc """
+  We can parse the file using regular expressions. I like `Regex.named_captures/3` because it lets
+  you name the parts of the regular expression you're interested in.
+  """
+  @spec parse_regex(Stream.t()) :: Stream.t()
+  def parse_regex(stream) do
+    Stream.map(stream, fn line ->
+      Regex.named_captures(~r/(?<low>\d+)-(?<high>\d+)\s*(?<letter>\w):\s*(?<pass>\w+)/, line)
+      |> Map.update!("low", &String.to_integer/1)
+      |> Map.update!("high", &String.to_integer/1)
+    end)
+  end
+
+  @doc """
+  We can also parse the file using binary pattern matching. This works because there aren't too
+  many variations in the sizing of the parts (only the numbers might change size to be one or two
+  digits) and the part with the most variation, the password, is at the very end.
+
+  When we capture the numbers, they are expressed as decimal integers. We can use character math
+  (the fact that "0" is ASCII character 48) to quickly adjust the values into integers. For two
+  digit numbers, multiply by the place number (10 or 1) as appropriate.
+
+  ?x is a quick way to get the ASCII code for a character, and <<x>> will move from the ASCII code
+  back to a string.
+  """
+  @spec parse_binary(Stream.t()) :: Stream.t()
+  def parse_binary(stream) do
+    Stream.map(stream, fn
+      # X-Y L: ...
+      <<low, ?-, high, _, letter::binary-1, ?:, _, pass::binary>> ->
+        %{"low" => low - 48, "high" => high - 48, "letter" => letter, "pass" => pass}
+
+      # X-YY L: ...
+      <<low, ?-, h1, h2, _, letter::binary-1, ?:, _, pass::binary>> ->
+        %{
+          "low" => low - 48,
+          "high" => 10 * (h1 - 48) + (h2 - 48),
+          "letter" => letter,
+          "pass" => pass
+        }
+
+      # XX-YY L: ...
+      <<l1, l2, ?-, h1, h2, _, letter::binary-1, ?:, _, pass::binary>> ->
+        %{
+          "low" => 10 * (l1 - 48) + (l2 - 48),
+          "high" => 10 * (h1 - 48) + (h2 - 48),
+          "letter" => letter,
+          "pass" => pass
+        }
+    end)
   end
 
   #
@@ -15,22 +71,12 @@ defmodule Day2 do
   @spec part_one :: non_neg_integer
   def part_one do
     input()
-    |> Stream.map(fn line ->
-      Regex.named_captures(~r/(?<low>\d+)-(?<high>\d+)\s*(?<letter>\w):\s*(?<pass>\w+)/, line)
-    end)
-    |> Stream.map(fn %{"letter" => letter, "pass" => pass, "low" => low, "high" => high} = line ->
+    |> parse_binary()
+    |> Stream.filter(fn %{"low" => low, "high" => high, "letter" => letter, "pass" => pass} ->
       count =
         String.codepoints(pass)
-        |> Enum.filter(&(&1 == letter))
-        |> Enum.count()
+        |> Enum.count(&(&1 == letter))
 
-      line
-      |> Map.put("count", count)
-      |> Map.put("low", String.to_integer(low))
-      |> Map.put("high", String.to_integer(high))
-      |> IO.inspect()
-    end)
-    |> Stream.filter(fn %{"low" => low, "count" => count, "high" => high} ->
       low <= count and count <= high
     end)
     |> Enum.count()
@@ -43,33 +89,17 @@ defmodule Day2 do
   @spec part_two :: non_neg_integer
   def part_two do
     input()
-    |> Stream.map(fn line ->
-      Regex.named_captures(~r/(?<first>\d+)-(?<second>\d+)\s*(?<letter>\w):\s*(?<pass>\w+)/, line)
-    end)
-    |> Stream.map(fn %{"first" => first, "second" => second} = line ->
-      line
-      |> Map.put("first", String.to_integer(first))
-      |> Map.put("second", String.to_integer(second))
-    end)
-    |> Stream.filter(fn %{
-                          "first" => first,
-                          "second" => second,
-                          "letter" => letter,
-                          "pass" => pass
-                        } ->
-      try do
-        list = String.to_charlist(pass)
-        first_letter = [Enum.at(list, first - 1)] |> List.to_string()
-        second_letter = [Enum.at(list, second - 1)] |> List.to_string()
+    |> parse_binary()
+    |> Stream.filter(fn %{"low" => low, "high" => high, "letter" => letter, "pass" => pass} ->
+      list = String.to_charlist(pass)
+      first_letter = <<Enum.at(list, low - 1)>>
+      second_letter = <<Enum.at(list, high - 1)>>
 
-        case IO.inspect({first_letter, second_letter}) do
-          {^letter, ^letter} -> false
-          {^letter, _} -> true
-          {_, ^letter} -> true
-          {_, _} -> false
-        end
-      rescue
-        ArgumentError -> false
+      case {first_letter, second_letter} do
+        {^letter, ^letter} -> false
+        {^letter, _} -> true
+        {_, ^letter} -> true
+        {_, _} -> false
       end
     end)
     |> Enum.count()
