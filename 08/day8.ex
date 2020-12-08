@@ -20,32 +20,37 @@ defmodule Day8 do
   # Part One
   #
 
+  @spec part_one :: number
   def part_one do
     input()
     |> Enum.to_list()
-    |> jumper_hound(0)
+    |> jump_around()
+    |> elem(1)
   end
 
-  defp jumper_hound(instructions, acc, index \\ 0) do
-    case Enum.at(instructions, index) do
+  defp jump_around(instructions, acc \\ 0, index \\ 0) do
+    case Enum.at(instructions, index, :end) do
       {:nop, _} ->
-        instructions = List.update_at(instructions, index, fn _ -> nil end)
+        instructions = List.replace_at(instructions, index, nil)
         index = index + 1
-        jumper_hound(instructions, acc, index)
+        jump_around(instructions, acc, index)
 
       {:acc, amount} ->
-        instructions = List.update_at(instructions, index, fn _ -> nil end)
+        instructions = List.replace_at(instructions, index, nil)
         acc = acc + amount
         index = index + 1
-        jumper_hound(instructions, acc, index)
+        jump_around(instructions, acc, index)
 
       {:jmp, amount} ->
-        instructions = List.update_at(instructions, index, fn _ -> nil end)
+        instructions = List.replace_at(instructions, index, nil)
         index = index + amount
-        jumper_hound(instructions, acc, index)
+        jump_around(instructions, acc, index)
 
       nil ->
-        acc
+        {:loop, acc}
+
+      :end ->
+        {:end, acc}
     end
   end
 
@@ -53,6 +58,7 @@ defmodule Day8 do
   # Part Two
   #
 
+  @spec part_two :: number
   def part_two do
     instructions =
       input()
@@ -66,47 +72,21 @@ defmodule Day8 do
 
       {{:nop, amount}, index}, _ ->
         instructions
-        |> List.update_at(index, fn _ -> {:jmp, amount} end)
-        |> jumper_hound2()
+        |> List.replace_at(index, {:jmp, amount})
+        |> jump_around()
         |> case do
-          false -> {:cont, nil}
-          acc when is_number(acc) -> {:halt, acc}
+          {:loop, _} -> {:cont, nil}
+          {:end, acc} -> {:halt, acc}
         end
 
       {{:jmp, amount}, index}, _ ->
         instructions
-        |> List.update_at(index, fn _ -> {:nop, amount} end)
-        |> jumper_hound2()
+        |> List.replace_at(index, {:nop, amount})
+        |> jump_around()
         |> case do
-          false -> {:cont, nil}
-          acc when is_number(acc) -> {:halt, acc}
+          {:loop, _} -> {:cont, nil}
+          {:end, acc} -> {:halt, acc}
         end
     end)
-  end
-
-  defp jumper_hound2(instructions, acc \\ 0, index \\ 0) do
-    case Enum.at(instructions, index, :end) do
-      {:nop, _} ->
-        instructions = List.update_at(instructions, index, fn _ -> nil end)
-        index = index + 1
-        jumper_hound2(instructions, acc, index)
-
-      {:acc, amount} ->
-        instructions = List.update_at(instructions, index, fn _ -> nil end)
-        acc = acc + amount
-        index = index + 1
-        jumper_hound2(instructions, acc, index)
-
-      {:jmp, amount} ->
-        instructions = List.update_at(instructions, index, fn _ -> nil end)
-        index = index + amount
-        jumper_hound2(instructions, acc, index)
-
-      nil ->
-        false
-
-      :end ->
-        acc
-    end
   end
 end
