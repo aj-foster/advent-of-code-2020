@@ -72,15 +72,26 @@ defmodule Day2 do
   def part_one do
     input()
     |> parse_binary()
-    |> Stream.filter(fn %{"low" => low, "high" => high, "letter" => letter, "pass" => pass} ->
-      count =
-        String.codepoints(pass)
-        |> Enum.count(&(&1 == letter))
-
+    |> Enum.count(fn %{"low" => low, "high" => high, "letter" => letter, "pass" => pass} ->
+      count = count_letter(pass, letter)
       low <= count and count <= high
     end)
-    |> Enum.count()
   end
+
+  # Recursively count instances of `letter` in `password`.
+  #
+  @spec count_letter(binary, binary, integer) :: integer
+  defp count_letter(password, letter, count \\ 0)
+
+  defp count_letter(<<letter::binary-1, rest::binary>>, letter, count) do
+    count_letter(rest, letter, count + 1)
+  end
+
+  defp count_letter(<<_::binary-1, rest::binary>>, letter, count) do
+    count_letter(rest, letter, count)
+  end
+
+  defp count_letter("", _letter, count), do: count
 
   #
   # Part Two
@@ -90,18 +101,15 @@ defmodule Day2 do
   def part_two do
     input()
     |> parse_binary()
-    |> Stream.filter(fn %{"low" => low, "high" => high, "letter" => letter, "pass" => pass} ->
-      list = String.to_charlist(pass)
-      first_letter = <<Enum.at(list, low - 1)>>
-      second_letter = <<Enum.at(list, high - 1)>>
-
-      case {first_letter, second_letter} do
-        {^letter, ^letter} -> false
-        {^letter, _} -> true
-        {_, ^letter} -> true
-        {_, _} -> false
-      end
+    |> Enum.count(fn %{"low" => low, "high" => high, "letter" => letter, "pass" => pass} ->
+      (letter == String.at(pass, low - 1)) ^^^ (letter == String.at(pass, high - 1))
     end)
-    |> Enum.count()
   end
+
+  # Custom operator for logical XOR.
+  #
+  defp true ^^^ true, do: false
+  defp true ^^^ false, do: true
+  defp false ^^^ true, do: true
+  defp false ^^^ false, do: false
 end
