@@ -1,5 +1,10 @@
 defmodule Day4 do
-  def part_one do
+  #
+  # Part One
+  #
+
+  @spec part_one_string :: non_neg_integer
+  def part_one_string do
     File.read!("04/input.txt")
     |> String.split("\n\n", trim: true)
     |> Enum.count(fn line ->
@@ -13,6 +18,10 @@ defmodule Day4 do
     end)
   end
 
+  #
+  # Part Two
+  #
+
   def part_two do
     File.read!("04/input.txt")
     |> String.split("\n\n", trim: true)
@@ -21,9 +30,9 @@ defmodule Day4 do
         String.contains?(line, "iyr:") and
         String.contains?(line, "eyr:") and
         String.contains?(line, "hgt:") and
-        String.contains?(line, "hcl:") and
-        String.contains?(line, "ecl:") and
-        String.contains?(line, "pid:")
+        Regex.match?(~r/hcl:\#[0-9a-fA-F]{6}(\s+|$)/, line) and
+        Regex.match?(~r/ecl:(amb|blu|brn|gry|grn|hzl|oth)(\s+|$)/, line) and
+        Regex.match?(~r/pid:\d{9}(\s+|$)/, line)
     end)
     |> Enum.count(fn line ->
       try do
@@ -31,12 +40,6 @@ defmodule Day4 do
         %{"iyr" => iyr} = Regex.named_captures(~r/iyr:(?<iyr>\d{4})(\s+|$)/, line)
         %{"eyr" => eyr} = Regex.named_captures(~r/eyr:(?<eyr>\d{4})(\s+|$)/, line)
         %{"hgt" => hgt} = Regex.named_captures(~r/hgt:(?<hgt>\d+(cm|in))(\s+|$)/, line)
-        %{"hcl" => hcl} = Regex.named_captures(~r/hcl:(?<hcl>\#[0-9a-fA-F]{6})(\s+|$)/, line)
-
-        %{"ecl" => ecl} =
-          Regex.named_captures(~r/ecl:(?<ecl>(amb|blu|brn|gry|grn|hzl|oth))(\s+|$)/, line)
-
-        %{"pid" => pid} = Regex.named_captures(~r/pid:(?<pid>\d{9})(\s+|$)/, line)
 
         String.to_integer(byr) >= 1920 and String.to_integer(byr) <= 2002 and
           (String.to_integer(iyr) >= 2010 and String.to_integer(iyr) <= 2020) and
