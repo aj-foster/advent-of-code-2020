@@ -1,10 +1,23 @@
 defmodule Day11 do
+  #
+  # Read and Parse
+  #
+
+  defp input do
+    File.stream!("11/input.txt")
+    |> Stream.map(&String.trim/1)
+    |> Stream.map(&String.codepoints/1)
+  end
+
+  #
+  # Part One
+  #
+
+  @offsets [{-1, -1}, {-1, 0}, {-1, 1}, {0, -1}, {0, 1}, {1, -1}, {1, 0}, {1, 1}]
+
   def part_one do
-    File.read!("11/input.txt")
-    |> String.split("\n", trim: true)
-    |> Enum.map(fn line ->
-      String.codepoints(line)
-    end)
+    input()
+    |> Enum.to_list()
     |> stuff()
   end
 
@@ -68,12 +81,13 @@ defmodule Day11 do
     stuff(new_board, board)
   end
 
+  #
+  # Part Two
+  #
+
   def part_two do
-    File.read!("11/input.txt")
-    |> String.split("\n", trim: true)
-    |> Enum.map(fn line ->
-      String.codepoints(line)
-    end)
+    input()
+    |> Enum.to_list()
     |> stuff2()
   end
 
@@ -95,34 +109,14 @@ defmodule Day11 do
             "."
 
           {"L", column} ->
-            [
-              {-1, -1},
-              {0, -1},
-              {1, -1},
-              {-1, 0},
-              {1, 0},
-              {-1, 1},
-              {0, 1},
-              {1, 1}
-            ]
-            |> Enum.count(fn {r, c} -> look(board, row, column, r, c) end)
+            Enum.count(@offsets, fn {r, c} -> look(board, row, column, r, c) end)
             |> case do
               0 -> "#"
               _ -> "L"
             end
 
           {"#", column} ->
-            [
-              {-1, -1},
-              {0, -1},
-              {1, -1},
-              {-1, 0},
-              {1, 0},
-              {-1, 1},
-              {0, 1},
-              {1, 1}
-            ]
-            |> Enum.count(fn {r, c} -> look(board, row, column, r, c) end)
+            Enum.count(@offsets, fn {r, c} -> look(board, row, column, r, c) end)
             |> case do
               x when x >= 5 -> "L"
               _ -> "#"
