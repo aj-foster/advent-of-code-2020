@@ -1,53 +1,46 @@
 defmodule Day17 do
-  def part_one do
-    File.read!("17/input.txt")
-    |> String.split("\n", trim: true)
-    |> Enum.with_index()
-    |> Enum.flat_map(fn {line, y} ->
+  require Day17Helper
+
+  #
+  # Read and Parse
+  #
+
+  @spec input :: [{number, number}]
+  defp input do
+    File.stream!("17/input.txt")
+    |> Stream.map(&String.trim/1)
+    |> Stream.with_index()
+    |> Stream.flat_map(fn {line, y} ->
       line
       |> String.codepoints()
       |> Enum.with_index()
       |> Enum.filter(fn {char, _x} -> char == "#" end)
-      |> Enum.map(fn {_char, x} -> {x, y, 0} end)
+      |> Enum.map(fn {_char, x} -> {x, y} end)
     end)
-    |> cycle(6)
+    |> Enum.to_list()
   end
 
-  @off_by_ones_3d [
-    {-1, -1, -1},
-    {-1, -1, 0},
-    {-1, -1, 1},
-    {-1, 0, -1},
-    {-1, 0, 0},
-    {-1, 0, 1},
-    {-1, 1, -1},
-    {-1, 1, 0},
-    {-1, 1, 1},
-    {0, -1, -1},
-    {0, -1, 0},
-    {0, -1, 1},
-    {0, 0, -1},
-    {0, 0, 1},
-    {0, 1, -1},
-    {0, 1, 0},
-    {0, 1, 1},
-    {1, -1, -1},
-    {1, -1, 0},
-    {1, -1, 1},
-    {1, 0, -1},
-    {1, 0, 0},
-    {1, 0, 1},
-    {1, 1, -1},
-    {1, 1, 0},
-    {1, 1, 1}
-  ]
+  #
+  # Part One
+  #
 
-  defp cycle(active_blocks, 0), do: length(active_blocks)
+  @doc """
 
-  defp cycle(active_blocks, round) do
+  """
+  @spec part_one :: non_neg_integer
+  def part_one do
+    input()
+    |> Enum.map(fn {x, y} -> {x, y, 0} end)
+    |> cycle_3d(6)
+  end
+
+  defp cycle_3d(active_blocks, 0), do: length(active_blocks)
+
+  defp cycle_3d(active_blocks, round) do
     active_blocks
     |> Enum.reduce(%{}, fn {x, y, z}, adjacencies ->
-      Enum.reduce(@off_by_ones_3d, adjacencies, fn {dx, dy, dz}, adjacencies ->
+      Day17Helper.off_by_ones_3d()
+      |> Enum.reduce(adjacencies, fn {dx, dy, dz}, adjacencies ->
         Map.update(adjacencies, {x + dx, y + dy, z + dz}, 1, &(&1 + 1))
       end)
     end)
@@ -63,30 +56,27 @@ defmodule Day17 do
           new_active_blocks
       end
     end)
-    |> IO.inspect(label: "after round = #{round}")
-    |> cycle(round - 1)
+    |> cycle_3d(round - 1)
   end
 
+  #
+  # Part Two
+  #
+
+  @spec part_two :: non_neg_integer
   def part_two do
-    File.read!("17/input.txt")
-    |> String.split("\n", trim: true)
-    |> Enum.with_index()
-    |> Enum.flat_map(fn {line, y} ->
-      line
-      |> String.codepoints()
-      |> Enum.with_index()
-      |> Enum.filter(fn {char, _x} -> char == "#" end)
-      |> Enum.map(fn {_char, x} -> {x, y, 0, 0} end)
-    end)
-    |> cycle2(6)
+    input()
+    |> Enum.map(fn {x, y} -> {x, y, 0, 0} end)
+    |> cycle_4d(6)
   end
 
-  defp cycle2(active_blocks, 0), do: length(active_blocks)
+  defp cycle_4d(active_blocks, 0), do: length(active_blocks)
 
-  defp cycle2(active_blocks, round) do
+  defp cycle_4d(active_blocks, round) do
     active_blocks
     |> Enum.reduce(%{}, fn {x, y, z, w}, adjacencies ->
-      Enum.reduce(off_by_ones_4d(), adjacencies, fn {dx, dy, dz, dw}, adjacencies ->
+      Day17Helper.off_by_ones_4d()
+      |> Enum.reduce(adjacencies, fn {dx, dy, dz, dw}, adjacencies ->
         Map.update(adjacencies, {x + dx, y + dy, z + dz, w + dw}, 1, &(&1 + 1))
       end)
     end)
@@ -102,17 +92,6 @@ defmodule Day17 do
           new_active_blocks
       end
     end)
-    |> IO.inspect(label: "after round = #{round}")
-    |> cycle2(round - 1)
-  end
-
-  defp off_by_ones_4d do
-    for x <- [-1, 0, 1],
-        y <- [-1, 0, 1],
-        z <- [-1, 0, 1],
-        w <- [-1, 0, 1],
-        {x, y, z, w} != {0, 0, 0, 0} do
-      {x, y, z, w}
-    end
+    |> cycle_4d(round - 1)
   end
 end
