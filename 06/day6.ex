@@ -1,4 +1,17 @@
 defmodule Day6 do
+  #
+  # Read and Parse
+  #
+
+  defp input do
+    File.read!("06/input.txt")
+    |> String.split("\n\n", trim: true)
+  end
+
+  #
+  # Part One
+  #
+
   @doc """
   This first solution is not particularly efficient, as it loops through the data multiple times
   on its way to a solution. The thesis is that we can treat each group (as delineated by double-
@@ -10,8 +23,7 @@ defmodule Day6 do
   """
   @spec part_one_strings :: number
   def part_one_strings do
-    File.read!("06/input.txt")
-    |> String.split("\n\n", trim: true)
+    input()
     |> Enum.map(fn group ->
       group
       |> String.replace(~r/[^a-z]/, "")
@@ -28,7 +40,7 @@ defmodule Day6 do
   keep a running count as we go.
 
   The `reducer/2` helper is doing most of the heavy listing. Understanding it requires understanding
-  the tuple being passed around at the accumulator:
+  the tuple being passed around as the accumulator:
 
       {
         sum,                Running total of all previous group counts.
@@ -59,9 +71,13 @@ defmodule Day6 do
   # Add up any leftover letters from the last group, which did not get finalized with two newlines.
   defp finalize({sum, letters, _bool}), do: sum + MapSet.size(letters)
 
+  #
+  # Part Two
+  #
+
+  @spec part_two :: number
   def part_two do
-    File.read!("06/input.txt")
-    |> String.split("\n\n", trim: true)
+    input()
     |> Enum.map(fn group ->
       counts =
         String.split(group, "\n", trim: true)
@@ -81,6 +97,6 @@ defmodule Day6 do
       |> Enum.filter(fn {_letter, count} -> count == total end)
       |> Enum.count()
     end)
-    |> Enum.reduce(&+/2)
+    |> Enum.sum()
   end
 end
