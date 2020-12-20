@@ -5,3 +5,6 @@ This repository contains my solutions for several
 developed with speed in mind (speed of coding, not efficiency of the code) and usually follow a
 "whatever comes to mind first" approach. Revisions, if they occur, attempt to clean it up and
 work towards better practices.
+
+In general, input is read from a file `input.txt` in each day's directory. My personal input files
+are omitted from this repository.
