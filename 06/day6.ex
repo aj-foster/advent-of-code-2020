@@ -24,14 +24,16 @@ defmodule Day6 do
   @spec part_one_strings :: number
   def part_one_strings do
     input()
-    |> Enum.map(fn group ->
-      group
-      |> String.replace(~r/[^a-z]/, "")
-      |> String.codepoints()
-      |> Enum.uniq()
-      |> Enum.count()
-    end)
-    |> Enum.reduce(&+/2)
+    |> Enum.map(&count_questions/1)
+    |> Enum.sum()
+  end
+
+  defp count_questions(group) do
+    group
+    |> String.replace(~r/[^a-z]/, "")
+    |> String.codepoints()
+    |> Enum.uniq()
+    |> Enum.count()
   end
 
   @doc """
@@ -75,28 +77,32 @@ defmodule Day6 do
   # Part Two
   #
 
+  @doc """
+  This solution is also not particularly efficient. For each group, we calculate the number of times
+  each letter appears and compare it with the total number of people. When the letter appears the
+  same number of times as the number of people, then it must have appeared for everyone.
+  """
   @spec part_two :: number
   def part_two do
     input()
-    |> Enum.map(fn group ->
-      counts =
-        String.split(group, "\n", trim: true)
-        |> Enum.reduce(%{}, fn person, acc ->
-          person
-          |> String.codepoints()
-          |> Enum.reduce(acc, fn x, acc ->
-            Map.update(acc, x, 1, &(&1 + 1))
-          end)
-          |> Map.update("total", 1, &(&1 + 1))
-        end)
-
-      total = Map.get(counts, "total")
-
-      counts
-      |> Map.delete("total")
-      |> Enum.filter(fn {_letter, count} -> count == total end)
-      |> Enum.count()
-    end)
+    |> Enum.map(&count_responses_by_letter/1)
     |> Enum.sum()
+  end
+
+  defp count_responses_by_letter(group) do
+    lines = String.split(group, "\n", trim: true)
+    total = length(lines)
+
+    lines
+    |> Enum.reduce(%{}, &reduce_letter_count/2)
+    |> Enum.count(fn {_letter, count} -> count == total end)
+  end
+
+  defp reduce_letter_count(person, counts) do
+    person
+    |> String.codepoints()
+    |> Enum.reduce(counts, fn letter, counts ->
+      Map.update(counts, letter, 1, &(&1 + 1))
+    end)
   end
 end
