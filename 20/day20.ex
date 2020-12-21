@@ -1,10 +1,47 @@
 defmodule Day20 do
   import Bitwise
 
-  def part_one do
+  #
+  # Read and Parse
+  #
+
+  @spec input :: [{id :: integer, tile :: [String.t()]}]
+  defp input do
     File.read!("20/input.txt")
     |> String.split("\n\n", trim: true)
     |> Enum.map(&parse/1)
+  end
+
+  defp parse(data) do
+    lines = String.split(data, "\n", trim: true)
+    <<"Tile ", id_and_colon::binary>> = List.first(lines)
+    {id, ":"} = Integer.parse(id_and_colon)
+
+    {id, Enum.drop(lines, 1)}
+  end
+
+  #
+  # Part One
+  #
+
+  @doc """
+  We can take each border, which will be a 10-character sequence of "." and "#" characters, and
+  convert it into binary numbers by swapping periods for zeroes and hashes for ones. Though not
+  explicitly stated, the border pairings are unique.
+
+  The "standard" encoding of a border will be from the interior of the tile, reading left-to-right
+  along the edge. Its matching border will be the reverse of this. We don't know if the matching
+  tile will need to be flipped, so its matching border could have either value to start.
+
+  The central idea for part one is that the corners will have two borders which have no pairings.
+  Thus, if we calculae a map from encoded borders -> tile IDs, we're first interested in the borders
+  with only 1 associated tile. Then, we're interested in the tiles that appear in this way a
+  total of 4 times. Why 4 and not 2? We're putting both the border and its reversal in the map,
+  so the two unmatched sides of a corner piece will be represented twice each.
+  """
+  @spec part_one :: non_neg_integer
+  def part_one do
+    input()
     |> Enum.map(&calculate_borders/1)
     |> Enum.reduce(%{}, &build_border_index/2)
     |> Enum.filter(fn {_border, ids} -> length(ids) == 1 end)
@@ -17,73 +54,56 @@ defmodule Day20 do
     |> Enum.reduce(&*/2)
   end
 
-  defp parse(data) do
-    lines = String.split(data, "\n", trim: true)
-    <<"Tile ", id_and_colon::binary>> = List.first(lines)
-    {id, ":"} = Integer.parse(id_and_colon)
-
-    {id, Enum.drop(lines, 1)}
-  end
-
   defp calculate_borders({id, tile}) do
     top =
       List.first(tile)
-      |> String.replace("#", "1")
-      |> String.replace(".", "0")
-      |> String.to_integer(2)
+      |> to_binary()
 
     top_flipped =
       List.first(tile)
       |> String.reverse()
-      |> String.replace("#", "1")
-      |> String.replace(".", "0")
-      |> String.to_integer(2)
+      |> to_binary()
 
     right =
       Enum.map(tile, &String.last/1)
       |> Enum.join()
-      |> String.replace("#", "1")
-      |> String.replace(".", "0")
-      |> String.to_integer(2)
+      |> to_binary()
 
     right_flipped =
       Enum.map(tile, &String.last/1)
       |> Enum.join()
       |> String.reverse()
-      |> String.replace("#", "1")
-      |> String.replace(".", "0")
-      |> String.to_integer(2)
+      |> to_binary()
 
     bottom =
       List.last(tile)
       |> String.reverse()
-      |> String.replace("#", "1")
-      |> String.replace(".", "0")
-      |> String.to_integer(2)
+      |> to_binary()
 
     bottom_flipped =
       List.last(tile)
-      |> String.replace("#", "1")
-      |> String.replace(".", "0")
-      |> String.to_integer(2)
+      |> to_binary()
 
     left =
       Enum.map(tile, &String.first/1)
       |> Enum.join()
       |> String.reverse()
-      |> String.replace("#", "1")
-      |> String.replace(".", "0")
-      |> String.to_integer(2)
+      |> to_binary()
 
     left_flipped =
       Enum.map(tile, &String.first/1)
       |> Enum.join()
-      |> String.replace("#", "1")
-      |> String.replace(".", "0")
-      |> String.to_integer(2)
+      |> to_binary()
 
     {id,
      [{top, top_flipped}, {right, right_flipped}, {bottom, bottom_flipped}, {left, left_flipped}]}
+  end
+
+  defp to_binary(string) do
+    string
+    |> String.replace("#", "1")
+    |> String.replace(".", "0")
+    |> String.to_integer(2)
   end
 
   defp build_border_index(
@@ -111,12 +131,9 @@ defmodule Day20 do
   # Part Two
   #
 
+  @spec part_two :: non_neg_integer
   def part_two do
-    tiles =
-      File.read!("20/input.txt")
-      |> String.split("\n\n", trim: true)
-      |> Enum.map(&parse/1)
-
+    tiles = input()
     tile_map = Enum.into(tiles, %{})
     borders = Enum.map(tiles, &calculate_borders/1)
     border_map = Enum.into(borders, %{})
