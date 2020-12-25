@@ -1,74 +1,77 @@
 defmodule Day24 do
+  @type tile :: reference
+  @type direction :: :east | :southeast | :southwest | :west | :northwest | :northeast
+  @type adjacency_map :: %{{tile, direction} => tile}
+
+  @directions [:east, :southeast, :southwest, :west, :northwest, :northeast]
+
+  # For part one, we need ~22 layers of hexagons out from the center due to the length of the
+  # longest set of directions. That translates to approximately 1386 tiles.
+  #
+  # @max_tile 1386
+
+  # For part two, we need ~122 layers of hexagons out from the center due to the length of the
+  # longest set of directions plus 100 days of potential outward expansion. That translates to
+  # approximately 30,000 hexagons.
+  #
+  # Ideally we would calculate tiles and their adjacencies on-the-fly, but this will suffice.
+  #
+  @max_tile 30_000
+
   #
   # Read and Parse
   #
 
+  @spec input :: Enumerable.t()
   defp input do
     File.stream!("24/input.txt")
     |> Stream.map(&String.trim/1)
     |> Stream.map(&parse_directions/1)
   end
 
-  defp parse_directions(directions) do
-    directions
-    |> String.codepoints()
-    |> parse_direction([])
-  end
-
-  defp parse_direction(["e" | rest], dirs), do: parse_direction(rest, [:east | dirs])
-  defp parse_direction(["s", "e" | rest], dirs), do: parse_direction(rest, [:southeast | dirs])
-  defp parse_direction(["s", "w" | rest], dirs), do: parse_direction(rest, [:southwest | dirs])
-  defp parse_direction(["w" | rest], dirs), do: parse_direction(rest, [:west | dirs])
-  defp parse_direction(["n", "w" | rest], dirs), do: parse_direction(rest, [:northwest | dirs])
-  defp parse_direction(["n", "e" | rest], dirs), do: parse_direction(rest, [:northeast | dirs])
-  defp parse_direction([], dirs), do: Enum.reverse(dirs)
-
-  # defp reduce_directions(directions)
-
-  # # Opposites cancel.
-  # defp reduce_directions([:east, :west | rest]), do: reduce_directions(rest)
-  # defp reduce_directions([:northeast, :southwest | rest]), do: reduce_directions(rest)
-  # defp reduce_directions([:northwest, :southeast | rest]), do: reduce_directions(rest)
-  # defp reduce_directions([:west, :east | rest]), do: reduce_directions(rest)
-  # defp reduce_directions([:southwest, :northeast | rest]), do: reduce_directions(rest)
-  # defp reduce_directions([:southeast, :northwest | rest]), do: reduce_directions(rest)
-
-  # #
-  # defp reduce_directions([:east, :northwest | rest]), do: reduce_directions([:northeast | rest])
-  # defp reduce_directions([:east, :southwest | rest]), do: reduce_directions([:southeast | rest])
-  # defp reduce_directions([:southeast, :west | rest]), do: reduce_directions([:southwest | rest])
-  # defp reduce_directions([:southeast, :west | rest]), do: reduce_directions([:southwest | rest])
+  @spec parse_directions(String.t(), [direction]) :: [direction]
+  defp parse_directions(string, directions \\ [])
+  defp parse_directions("e" <> rest, dirs), do: parse_directions(rest, [:east | dirs])
+  defp parse_directions("se" <> rest, dirs), do: parse_directions(rest, [:southeast | dirs])
+  defp parse_directions("sw" <> rest, dirs), do: parse_directions(rest, [:southwest | dirs])
+  defp parse_directions("w" <> rest, dirs), do: parse_directions(rest, [:west | dirs])
+  defp parse_directions("nw" <> rest, dirs), do: parse_directions(rest, [:northwest | dirs])
+  defp parse_directions("ne" <> rest, dirs), do: parse_directions(rest, [:northeast | dirs])
+  defp parse_directions("", dirs), do: Enum.reverse(dirs)
 
   #
   # Part One
   #
 
-  @directions [:east, :southeast, :southwest, :west, :northwest, :northeast]
-  # @max_tile 1386
-  # @max_tile 2000
-  @max_tile 30_000
-
+  @doc """
+  For part one, we want to find all of the flipped tiles and count those that have been flipped an
+  odd number of times. Although inefficient, we can pre-compute a map of all adjacencies (one that
+  maps {tile, direction} -> tile) we are likely to need based on the number of directions there are
+  in each line.
+  """
+  @spec part_one :: non_neg_integer
   def part_one do
-    first_tile = make_ref()
+    {center_tile, adjacencies} = create_adjacency_map()
+
+    input()
+    |> Enum.map(fn directions -> find_tile(directions, adjacencies, center_tile) end)
+    |> Enum.frequencies()
+    |> Enum.count(fn {_tile, frequency} -> rem(frequency, 2) == 1 end)
+  end
+
+  @spec create_adjacency_map :: {tile, adjacency_map}
+  defp create_adjacency_map do
+    center_tile = make_ref()
 
     first_adjacencies =
-      Enum.reduce(@directions, [], fn dir, list -> [{first_tile, dir} | list] end)
+      Enum.reduce(@directions, [], fn dir, list -> [{center_tile, dir} | list] end)
 
     adjacencies = map_adjacencies(%{}, first_adjacencies)
 
-    input()
-    |> Enum.map(fn directions -> find_tile(directions, adjacencies, first_tile) end)
-    |> Enum.sort()
-    |> remove_even_duplicates()
-    |> Enum.count()
+    {center_tile, adjacencies}
   end
 
-  defp remove_even_duplicates([a, a | rest]), do: remove_even_duplicates(rest)
-  defp remove_even_duplicates([a, b | rest]), do: [a | remove_even_duplicates([b | rest])]
-  defp remove_even_duplicates([a]), do: [a]
-  defp remove_even_duplicates([]), do: []
-
-  defp map_adjacencies(map, _queue) when map_size(map) >= @max_tile * 12, do: map
+  defp map_adjacencies(map, _queue) when map_size(map) >= @max_tile * 6, do: map
 
   defp map_adjacencies(map, [{tile, direction} | rest]) do
     if Map.get(map, {tile, direction}) do
@@ -110,32 +113,6 @@ defmodule Day24 do
     end
   end
 
-  defp opposite(:east), do: :west
-  defp opposite(:southeast), do: :northwest
-  defp opposite(:southwest), do: :northeast
-  defp opposite(:west), do: :east
-  defp opposite(:northwest), do: :southeast
-  defp opposite(:northeast), do: :southwest
-
-  def clockwise(direction) do
-    @directions
-    |> Stream.cycle()
-    |> Stream.drop_while(&(&1 != direction))
-    |> Stream.drop(1)
-    |> Enum.take(1)
-    |> List.first()
-  end
-
-  def counterclockwise(direction) do
-    @directions
-    |> Enum.reverse()
-    |> Stream.cycle()
-    |> Stream.drop_while(&(&1 != direction))
-    |> Stream.drop(1)
-    |> Enum.take(1)
-    |> List.first()
-  end
-
   defp find_tile([direction | rest], adjacencies, current) do
     next = Map.fetch!(adjacencies, {current, direction})
     find_tile(rest, adjacencies, next)
@@ -147,6 +124,7 @@ defmodule Day24 do
   # Part Two
   #
 
+  @spec part_two :: non_neg_integer
   def part_two do
     first_tile = make_ref()
 
@@ -158,8 +136,9 @@ defmodule Day24 do
     black_tiles =
       input()
       |> Enum.map(fn directions -> find_tile(directions, adjacencies, first_tile) end)
-      |> Enum.sort()
-      |> remove_even_duplicates()
+      |> Enum.frequencies()
+      |> Enum.filter(fn {_tile, frequency} -> rem(frequency, 2) == 1 end)
+      |> Enum.map(fn {tile, _frequency} -> tile end)
       |> MapSet.new()
 
     day(black_tiles, adjacencies)
@@ -169,47 +148,83 @@ defmodule Day24 do
   defp day(tiles, _adjacencies, 100), do: MapSet.size(tiles)
 
   defp day(tiles, adjacencies, day) do
-    IO.inspect(MapSet.size(tiles), label: "Day #{day}")
-
-    next_to_black_tile =
-      Enum.map(tiles, fn tile ->
-        @directions
-        |> Enum.map(fn dir -> Map.get(adjacencies, {tile, dir}) end)
-        |> Enum.reject(&is_nil/1)
-        |> Enum.reject(fn tile -> MapSet.member?(tiles, tile) end)
-      end)
-      |> List.flatten()
-      |> MapSet.new()
-
-    new_black_tiles =
-      Enum.filter(next_to_black_tile, fn tile ->
-        @directions
-        |> Enum.count(fn dir ->
-          a = Map.fetch!(adjacencies, {tile, dir})
-          MapSet.member?(tiles, a)
-        end)
-        |> case do
-          2 -> true
-          _ -> false
-        end
-      end)
-      |> MapSet.new()
-
-    tiles =
-      Enum.filter(tiles, fn tile ->
-        @directions
-        |> Enum.count(fn dir ->
-          a = Map.fetch!(adjacencies, {tile, dir})
-          MapSet.member?(tiles, a)
-        end)
-        |> case do
-          1 -> true
-          2 -> true
-          _ -> false
-        end
-      end)
-      |> MapSet.new()
+    adjacent_to_black_tiles = find_adjacent_to_black(tiles, adjacencies)
+    new_black_tiles = find_new_black_tiles(tiles, adjacent_to_black_tiles, adjacencies)
+    tiles = find_tiles_remaining_black(tiles, adjacencies)
 
     day(MapSet.union(tiles, new_black_tiles), adjacencies, day + 1)
+  end
+
+  defp find_adjacent_to_black(black_tiles, adjacencies) do
+    Enum.map(black_tiles, fn tile ->
+      @directions
+      |> Enum.map(fn dir -> Map.get(adjacencies, {tile, dir}) end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.reject(fn tile -> MapSet.member?(black_tiles, tile) end)
+    end)
+    |> List.flatten()
+    |> MapSet.new()
+  end
+
+  defp find_new_black_tiles(black_tiles, adjacent_to_black_tiles, adjacencies) do
+    Enum.filter(adjacent_to_black_tiles, fn tile ->
+      @directions
+      |> Enum.count(fn dir ->
+        a = Map.fetch!(adjacencies, {tile, dir})
+        MapSet.member?(black_tiles, a)
+      end)
+      |> case do
+        2 -> true
+        _ -> false
+      end
+    end)
+    |> MapSet.new()
+  end
+
+  defp find_tiles_remaining_black(black_tiles, adjacencies) do
+    Enum.filter(black_tiles, fn tile ->
+      @directions
+      |> Enum.count(fn dir ->
+        a = Map.fetch!(adjacencies, {tile, dir})
+        MapSet.member?(black_tiles, a)
+      end)
+      |> case do
+        1 -> true
+        2 -> true
+        _ -> false
+      end
+    end)
+    |> MapSet.new()
+  end
+
+  #
+  # Helpers
+  #
+
+  # One way of mapping directions: manually with pattern matching.
+  @spec opposite(direction) :: direction
+  defp opposite(:east), do: :west
+  defp opposite(:southeast), do: :northwest
+  defp opposite(:southwest), do: :northeast
+  defp opposite(:west), do: :east
+  defp opposite(:northwest), do: :southeast
+  defp opposite(:northeast), do: :southwest
+
+  # Another way of mapping directions: using infinite cycles of directions.
+  @spec clockwise(direction) :: direction
+  defp clockwise(direction) do
+    @directions
+    |> Stream.cycle()
+    |> Stream.drop_while(&(&1 != direction))
+    |> Enum.at(1)
+  end
+
+  @spec counterclockwise(direction) :: direction
+  defp counterclockwise(direction) do
+    @directions
+    |> Enum.reverse()
+    |> Stream.cycle()
+    |> Stream.drop_while(&(&1 != direction))
+    |> Enum.at(1)
   end
 end
