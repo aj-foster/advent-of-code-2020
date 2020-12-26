@@ -3,32 +3,35 @@ defmodule Day11 do
   # Read and Parse
   #
 
+  @spec input :: [String.t()]
   defp input do
     File.stream!("11/input.txt")
     |> Stream.map(&String.trim/1)
     |> Stream.map(&String.codepoints/1)
+    |> Enum.to_list()
   end
+
+  @offsets [{-1, -1}, {-1, 0}, {-1, 1}, {0, -1}, {0, 1}, {1, -1}, {1, 0}, {1, 1}]
 
   #
   # Part One
   #
 
-  @offsets [{-1, -1}, {-1, 0}, {-1, 1}, {0, -1}, {0, 1}, {1, -1}, {1, 0}, {1, 1}]
-
+  @spec part_one :: integer
   def part_one do
     input()
-    |> Enum.to_list()
-    |> stuff()
+    |> play_round()
   end
 
-  defp stuff(board, previous \\ [])
+  defp play_round(board, previous \\ [])
 
-  defp stuff(board, board) do
+  # If the board has not changed, we are finished.
+  defp play_round(board, board) do
     Enum.map(board, fn line -> Enum.count(line, &(&1 == "#")) end)
-    |> Enum.reduce(&+/2)
+    |> Enum.sum()
   end
 
-  defp stuff(board, _previous) do
+  defp play_round(board, _previous) do
     indexed = Enum.with_index(Enum.map(board, &Enum.with_index/1))
 
     new_board =
@@ -39,66 +42,53 @@ defmodule Day11 do
             "."
 
           {"L", column} ->
-            [
-              {row - 1, column - 1},
-              {row, column - 1},
-              {row + 1, column - 1},
-              {row - 1, column},
-              {row + 1, column},
-              {row - 1, column + 1},
-              {row, column + 1},
-              {row + 1, column + 1}
-            ]
-            |> Enum.count(fn {r, c} ->
-              r > -1 and c > -1 and Enum.at(Enum.at(board, r) || [], c) == "#"
-            end)
-            |> case do
+            case count_adjacent_seats(board, row, column) do
               0 -> "#"
               _ -> "L"
             end
 
           {"#", column} ->
-            [
-              {row - 1, column - 1},
-              {row, column - 1},
-              {row + 1, column - 1},
-              {row - 1, column},
-              {row + 1, column},
-              {row - 1, column + 1},
-              {row, column + 1},
-              {row + 1, column + 1}
-            ]
-            |> Enum.count(fn {r, c} ->
-              r > -1 and c > -1 and Enum.at(Enum.at(board, r) || [], c) == "#"
-            end)
-            |> case do
+            case count_adjacent_seats(board, row, column) do
               x when x >= 4 -> "L"
               _ -> "#"
             end
         end)
       end)
 
-    stuff(new_board, board)
+    play_round(new_board, board)
+  end
+
+  defp count_adjacent_seats(board, row, column) do
+    @offsets
+    |> Enum.map(fn {r, c} -> {row + r, column + c} end)
+    |> Enum.filter(fn {row, _column} -> row > -1 end)
+    |> Enum.filter(fn {_row, column} -> column > -1 end)
+    |> Enum.count(fn {row, column} ->
+      row = Enum.at(board, row) || []
+      point = Enum.at(row, column)
+
+      point == "#"
+    end)
   end
 
   #
   # Part Two
   #
 
+  @spec part_two :: integer
   def part_two do
     input()
-    |> Enum.to_list()
-    |> stuff2()
+    |> play_advanced_round()
   end
 
-  defp stuff2(board, previous \\ [])
+  defp play_advanced_round(board, previous \\ [])
 
-  defp stuff2(board, board) do
+  defp play_advanced_round(board, board) do
     Enum.map(board, fn line -> Enum.count(line, &(&1 == "#")) end)
-    |> Enum.reduce(&+/2)
+    |> Enum.sum()
   end
 
-  defp stuff2(board, _previous) do
+  defp play_advanced_round(board, _previous) do
     indexed = Enum.with_index(Enum.map(board, &Enum.with_index/1))
 
     new_board =
@@ -109,22 +99,24 @@ defmodule Day11 do
             "."
 
           {"L", column} ->
-            Enum.count(@offsets, fn {r, c} -> look(board, row, column, r, c) end)
-            |> case do
+            case count_visible_seats(board, row, column) do
               0 -> "#"
               _ -> "L"
             end
 
           {"#", column} ->
-            Enum.count(@offsets, fn {r, c} -> look(board, row, column, r, c) end)
-            |> case do
+            case count_visible_seats(board, row, column) do
               x when x >= 5 -> "L"
               _ -> "#"
             end
         end)
       end)
 
-    stuff2(new_board, board)
+    play_advanced_round(new_board, board)
+  end
+
+  defp count_visible_seats(board, row, column) do
+    Enum.count(@offsets, fn {r, c} -> look(board, row, column, r, c) end)
   end
 
   defp look(board, row, column, offset_x, offset_y, multiple \\ 1)
