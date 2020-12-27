@@ -12,6 +12,7 @@ defmodule Day20 do
     |> Enum.map(&parse/1)
   end
 
+  @spec parse(String.t()) :: {integer, [String.t()]}
   defp parse(data) do
     lines = String.split(data, "\n", trim: true)
     <<"Tile ", id_and_colon::binary>> = List.first(lines)
@@ -46,14 +47,16 @@ defmodule Day20 do
     |> Enum.reduce(%{}, &build_border_index/2)
     |> Enum.filter(fn {_border, ids} -> length(ids) == 1 end)
     |> Enum.map(fn {_border, [id]} -> id end)
-    |> Enum.reduce(%{}, fn id, freq -> Map.update(freq, id, 1, &(&1 + 1)) end)
-    |> Enum.reduce(%{}, fn {id, freq}, rev_freq ->
-      Map.update(rev_freq, freq, [id], &[id | &1])
+    |> Enum.frequencies()
+    |> Enum.reduce(%{}, fn {id, freq}, reverse_frequencies ->
+      Map.update(reverse_frequencies, freq, [id], &[id | &1])
     end)
     |> Map.fetch!(4)
     |> Enum.reduce(&*/2)
   end
 
+  # Calculate the forward and reverse border integer equivalents for each side of a tile.
+  @spec calculate_borders({integer, [String.t()]}) :: {integer, [{integer, integer}]}
   defp calculate_borders({id, tile}) do
     top =
       List.first(tile)
@@ -99,6 +102,8 @@ defmodule Day20 do
      [{top, top_flipped}, {right, right_flipped}, {bottom, bottom_flipped}, {left, left_flipped}]}
   end
 
+  # Convert a sequence of # and . characters into an integer via # = 1 and . = 0 in binary.
+  @spec to_binary(String.t()) :: integer
   defp to_binary(string) do
     string
     |> String.replace("#", "1")
@@ -106,6 +111,9 @@ defmodule Day20 do
     |> String.to_integer(2)
   end
 
+  # Create a map of border values -> a list of associated tiles.
+  @spec build_border_index({integer, [{integer, integer}]}, %{integer => [integer]}) ::
+          %{integer => [integer]}
   defp build_border_index(
          {id,
           [
@@ -131,6 +139,18 @@ defmodule Day20 do
   # Part Two
   #
 
+  @doc """
+  Part two happens in roughly three phases. First, we construct the full image by identifying the
+  first corner and recursively adding tiles to each row (and rows to the full image). This process
+  is mostly tedious, and we have to find the first tile/row manually to kick off the recursion.
+
+  Second, we search for sea creatures. The neat insight here is that we can treat both the sea and
+  the sea creature as large integers and search for places where the bits "line up". The creature
+  acts like a mask, and we look for places where the sea & mask == creature.
+
+  Third, we count the hashes created by sea creatures and subtract them from the total number to
+  get our final answer.
+  """
   @spec part_two :: non_neg_integer
   def part_two do
     tiles = input()
@@ -138,6 +158,8 @@ defmodule Day20 do
     borders = Enum.map(tiles, &calculate_borders/1)
     border_map = Enum.into(borders, %{})
     adjacencies = Enum.reduce(borders, %{}, &build_border_index/2)
+
+    # Joining the image
 
     arbitrarily_chosen_top_left_corner =
       adjacencies
@@ -184,15 +206,15 @@ defmodule Day20 do
       end)
       |> List.flatten()
 
+    # Finding creatures
+
     sea_creature =
       [
-        "                  # ",
-        "#    ##    ##    ###",
-        " #  #  #  #  #  #   "
+        "..................#.",
+        "#....##....##....###",
+        ".#..#..#..#..#..#..."
       ]
-      |> Enum.map(fn line -> String.replace(line, "#", "1") end)
-      |> Enum.map(fn line -> String.replace(line, " ", "0") end)
-      |> Enum.map(fn line -> String.to_integer(line, 2) end)
+      |> Enum.map(&to_binary/1)
       |> Enum.with_index()
       |> Enum.reduce(0, fn {num, index}, acc ->
         shift =
@@ -203,77 +225,45 @@ defmodule Day20 do
         acc ||| num <<< shift
       end)
 
-    non_noise = test(image, sea_creature) * 15
+    # We don't know if the full image needs rotating or flipping, so try all orientations until we
+    # find a count of sea creatures greater than zero.
+    count_of_sea_creatures =
+      for(
+        x <- 0..3,
+        y <- [false, true],
+        do: {x, y}
+      )
+      |> Enum.reduce_while(0, fn {rotations, flipped?}, _ ->
+        count =
+          image
+          |> transform_image(rotations, flipped?)
+          |> test(sea_creature)
+
+        if count > 0 do
+          {:halt, count}
+        else
+          {:cont, count}
+        end
+      end)
+
+    # Counting hashes
 
     hashes =
       Enum.join(image)
       |> String.codepoints()
       |> Enum.count(&(&1 == "#"))
 
-    hashes - non_noise
+    # Final answer: total number of hashes minus those included in a sea creature.
+    hashes - count_of_sea_creatures * 15
   end
 
-  defp test(sea, creature, count \\ 0)
+  #
+  # Helpers: constructing the image
+  #
 
-  defp test([r1, r2, r3 | rest], creature, count) do
-    count =
-      [r1, r2, r3]
-      |> Enum.join()
-      |> String.replace("#", "1")
-      |> String.replace(".", "0")
-      |> IO.inspect()
-      |> String.to_integer(2)
-      |> attempt(creature, count)
-
-    test([r2, r3 | rest], creature, count)
-  end
-
-  defp test(_, _, count), do: count
-
-  defp attempt(sea, creature, count)
-  defp attempt(sea, _, count) when sea == 0, do: count
-
-  defp attempt(sea, creature, count)
-       when (sea &&& creature) == creature,
-       do: attempt(sea >>> 1, creature, count + 1)
-
-  defp attempt(sea, creature, count), do: attempt(sea >>> 1, creature, count)
-
-  defp transform_tile({id, rotations, flipped?}, tiles) do
-    tile =
-      Map.fetch!(tiles, id)
-      |> Enum.map(fn line -> String.slice(line, 1..-2) end)
-      |> Enum.slice(1..-2)
-
-    rotated_tile =
-      case rotations do
-        0 ->
-          tile
-
-        1 ->
-          Enum.map(0..(length(tile) - 1), fn index ->
-            Enum.map(tile, fn line -> String.at(line, length(tile) - 1 - index) end)
-            |> Enum.join()
-          end)
-
-        2 ->
-          Enum.map(tile, &String.reverse/1)
-          |> Enum.reverse()
-
-        3 ->
-          Enum.map(0..(length(tile) - 1), fn index ->
-            Enum.reverse(tile)
-            |> Enum.map(fn line -> String.at(line, index) end)
-            |> Enum.join()
-          end)
-      end
-
-    case flipped? do
-      false -> rotated_tile
-      true -> Enum.reverse(rotated_tile)
-    end
-  end
-
+  # Recursively add tiles to a row until we reach a tile with no right-facing match.
+  @spec map_tile([{integer, integer, boolean}], integer, map, map) ::
+          [{integer, integer, boolean}]
   defp map_tile([{prev_tile, _, _} | _] = tiles, border, adjacencies, border_map) do
     case Map.fetch!(adjacencies, border) do
       [^prev_tile] ->
@@ -282,19 +272,26 @@ defmodule Day20 do
       list ->
         [id] = Enum.filter(list, &(&1 != prev_tile))
         all_borders = Map.fetch!(border_map, id)
+
+        # Borders are listed clockwise starting with the top. The border could be the forward or
+        # reverse variant of this tile's border as it was originally transmitted.
         rotations = Enum.find_index(all_borders, fn {b, rev} -> b == border or rev == border end)
         rotations = rem(rotations + 1, 4)
 
+        # By setting up an infinite cycle of the tile's borders that begins with the one that will
+        # be adjacent to the previous tile, we can access borders without worrying about remainders.
         next_borders =
           Stream.cycle(all_borders)
           |> Stream.drop_while(fn {b, rev} -> b != border and rev != border end)
 
+        # If the forward variant is passed in, we need the reverse variant for this tile.
         flipped =
           case Enum.at(next_borders, 0) do
             {^border, _} -> true
             {_, ^border} -> false
           end
 
+        # We pass the current tiles's border (not its match) to the next call.
         next_border =
           case flipped do
             false -> Enum.at(next_borders, 2) |> elem(0)
@@ -307,6 +304,8 @@ defmodule Day20 do
     end
   end
 
+  # Recursively add rows to the image until we reach a row with no bottom-facing match.
+  @spec map_row([[{integer, integer, boolean}]], map, map) :: [[{integer, integer, boolean}]]
   defp map_row(
          [[{prev_row_first_tile, rotations, flipped} | _] | _] = rows,
          adjacencies,
@@ -325,6 +324,8 @@ defmodule Day20 do
         Enum.reverse(rows)
 
       list ->
+        # Work in this clause is similar to map_tile/3, however it begins with information about
+        # the bottom of the previous row and then focuses to the right.
         [id] = Enum.filter(list, &(&1 != prev_row_first_tile))
         all_borders = Map.fetch!(border_map, id)
 
@@ -356,4 +357,93 @@ defmodule Day20 do
         map_row([next_row | rows], adjacencies, border_map)
     end
   end
+
+  #
+  # Helpers: searching for sea creatures
+  #
+
+  # Cycle through groups of three contiguous rows and look for sea creatures using `attempt/3`.
+  @spec test([String.t()], integer, integer) :: integer
+  defp test(sea, creature, count \\ 0)
+
+  defp test([r1, r2, r3 | rest], creature, count) do
+    count =
+      [r1, r2, r3]
+      |> Enum.join()
+      |> to_binary()
+      |> attempt(creature, count)
+
+    test([r2, r3 | rest], creature, count)
+  end
+
+  # Base case: we've run out of rows. Return the count of creatures.
+  defp test(_, _, count), do: count
+
+  # Bitwise shift the sea, looking for a portion that matches the sea creature.
+  @spec attempt(integer, integer, integer) :: integer
+  defp attempt(sea, creature, count)
+  defp attempt(sea, _, count) when sea == 0, do: count
+
+  defp attempt(sea, creature, count)
+       when (sea &&& creature) == creature,
+       do: attempt(sea >>> 1, creature, count + 1)
+
+  defp attempt(sea, creature, count), do: attempt(sea >>> 1, creature, count)
+
+  #
+  # Helpers: tile and image transformation
+  #
+
+  # Trim, rotate, and flip a tile according to the given specifications.
+  @spec transform_tile({integer, integer, boolean}, map) :: [String.t()]
+  defp transform_tile({id, rotations, flipped?}, tiles) do
+    Map.fetch!(tiles, id)
+    |> trim_tile()
+    |> maybe_rotate(rotations)
+    |> maybe_flip(flipped?)
+  end
+
+  # Rotate and flip an image according to the given specifications.
+  @spec transform_image([String.t()], integer, boolean) :: [String.t()]
+  defp transform_image(image, rotations, flipped?) do
+    image
+    |> maybe_rotate(rotations)
+    |> maybe_flip(flipped?)
+  end
+
+  # Remove borders from a tile.
+  @spec trim_tile([String.t()]) :: [String.t()]
+  defp trim_tile(tile) do
+    Enum.map(tile, fn line -> String.slice(line, 1..-2) end)
+    |> Enum.slice(1..-2)
+  end
+
+  # Rotate an image by the given number of turns, if any.
+  @spec maybe_rotate([String.t()], integer) :: [String.t()]
+  defp maybe_rotate(image, 0), do: image
+
+  defp maybe_rotate(image, 1) do
+    Enum.map(0..(length(image) - 1), fn index ->
+      Enum.map(image, fn line -> String.at(line, length(image) - 1 - index) end)
+      |> Enum.join()
+    end)
+  end
+
+  defp maybe_rotate(image, 2) do
+    Enum.map(image, &String.reverse/1)
+    |> Enum.reverse()
+  end
+
+  defp maybe_rotate(image, 3) do
+    Enum.map(0..(length(image) - 1), fn index ->
+      Enum.reverse(image)
+      |> Enum.map(fn line -> String.at(line, index) end)
+      |> Enum.join()
+    end)
+  end
+
+  # Flip an image if necessary, according to the second argument.
+  @spec maybe_flip([String.t()], boolean) :: [String.t()]
+  defp maybe_flip(image, true), do: Enum.reverse(image)
+  defp maybe_flip(image, false), do: image
 end
